@@ -60,6 +60,9 @@ module Rack
         Thread.current[:mp_authorized]
       end
 
+      def run_to_file(name = "no-name", options = {}, &block)
+        Rack::MiniProfiler.new(Rails.application).run_to_file(name, options, &block)
+      end
     end
 
     #
@@ -615,5 +618,43 @@ Append the following to your query string:
       current.inject_js = false
     end
 
+    # @param [Hash] options the options to create a file
+    # @option opts [String] :base_url (default http://localhost:3000) url where the script is located
+    # @option opts [Boolean|String] :json name of json file. true will generate a name
+    # @option opts [Boolean|String] :html name of html file. true will generate a name
+    # @option opts [Boolean] :open true to open the url in a browser
+
+    def run_to_file(name = "no-name", options = {})
+      Rack::MiniProfiler.create_current
+      page_struct = Rack::MiniProfiler.current.page_struct
+      start = Time.now
+      yield
+      page_struct[:root].record_time((Time.now - start) * 1000)
+      page_struct[:name] ||= name
+      Rack::MiniProfiler.config.storage_instance.save(page_struct)
+
+      url = options[:base_url] || 'http://localhost:3000'
+      env = {'RACK_MINI_PROFILER_ORIGINAL_SCRIPT_NAME' => url}
+
+      if (filename = options[:json])
+        require "json"
+        filename = Rails.root.join("public/run-#{page_struct[:id]}.json") if filename == true
+        File.write(filename, JSON.pretty_generate(page_struct.attributes))
+      end
+
+      if (filename = options[:html])
+        html = generate_html(page_struct, env)
+        filename = Rails.root.join("public/run-#{page_struct[:id]}.html") if filename == true
+        File.write(filename, html)
+        file_url = filename.gsub(/.*public\//, url)
+        puts "#{file_url}"
+        `open #{file_url}` if options[:open]
+      end
+
+      page_struct[:id]
+    ensure
+      # Make sure this always happens
+      Rack::MiniProfiler.current = nil
+    end
   end
 end
