@@ -5,11 +5,11 @@ require 'bundler/gem_tasks'
 
 Bundler.setup(:default, :test)
 
-require 'rubocop/rake_task'
+#require 'rubocop/rake_task'
 
-RuboCop::RakeTask.new
+#RuboCop::RakeTask.new
 
-task :default => [:rubocop, :spec]
+task :default => [:spec]
 
 require 'rspec/core'
 require 'rspec/core/rake_task'
